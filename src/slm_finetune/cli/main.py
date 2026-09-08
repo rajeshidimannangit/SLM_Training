@@ -267,6 +267,7 @@ def metrics_report(
             base_metrics=payload["base_metrics"],
             finetuned_metrics=payload["finetuned_metrics"],
             title=payload.get("title", "Performing the evaluation on base SLM and finetuned SLM"),
+            examples=payload.get("examples") or [],
         )
         return
 

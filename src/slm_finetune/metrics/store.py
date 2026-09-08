@@ -103,20 +103,28 @@ class MetricsStore:
         artifacts_dir: str | None = None,
         experiment_name: str | None = None,
     ) -> None:
+        """Create a run row, or reset an existing run_id for a clean re-run."""
         exp = experiment_name or self.experiment_name
+        now = datetime.now(timezone.utc)
+        values = {
+            "experiment_name": exp,
+            "method": method,
+            "status": "running",
+            "params_json": json.dumps(params or {}),
+            "started_at": now,
+            "ended_at": None,
+            "artifacts_dir": artifacts_dir,
+        }
         with self.engine.begin() as conn:
-            conn.execute(
-                self.runs.insert().values(
-                    run_id=run_id,
-                    experiment_name=exp,
-                    method=method,
-                    status="running",
-                    params_json=json.dumps(params or {}),
-                    started_at=datetime.now(timezone.utc),
-                    ended_at=None,
-                    artifacts_dir=artifacts_dir,
-                )
-            )
+            existing = conn.execute(
+                select(self.runs.c.run_id).where(self.runs.c.run_id == run_id)
+            ).first()
+            if existing:
+                # Re-train with the same --run-name: reset row and drop old metrics.
+                conn.execute(self.metrics.delete().where(self.metrics.c.run_id == run_id))
+                conn.execute(self.runs.update().where(self.runs.c.run_id == run_id).values(**values))
+            else:
+                conn.execute(self.runs.insert().values(run_id=run_id, **values))
 
     def finish_run(self, run_id: str, status: str = "finished") -> None:
         with self.engine.begin() as conn:

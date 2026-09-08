@@ -58,6 +58,7 @@ class PredictionRow:
     latency_sec: float
     consistency_group: str | None = None
     raw: str = ""
+    input_text: str = ""
 
 
 @dataclass
@@ -186,6 +187,7 @@ def score_row(
     latency_sec: float,
     allowed_intents: set[str] | None,
     consistency_group: str | None,
+    input_text: str = "",
 ) -> PredictionRow:
     pred_intent = parse_intent(response, allowed_intents)
     pred_reason = parse_reason_code(response)
@@ -220,6 +222,7 @@ def score_row(
         latency_sec=latency_sec,
         consistency_group=consistency_group,
         raw=response,
+        input_text=input_text or "",
     )
 
 
@@ -243,6 +246,38 @@ def rows_from_eval_records(
                 latency_sec=lat,
                 allowed_intents=allowed_intents,
                 consistency_group=rec.get("consistency_group"),
+                input_text=str(
+                    rec.get("input") or rec.get("message") or rec.get("query") or ""
+                ),
             )
         )
     return out
+
+
+def build_example_pairs(
+    base_rows: list[PredictionRow],
+    finetuned_rows: list[PredictionRow],
+) -> list[dict[str, Any]]:
+    """Align base/finetuned predictions into query + answer pairs for the report."""
+    if len(base_rows) != len(finetuned_rows):
+        raise ValueError("base and finetuned prediction rows must align")
+    examples: list[dict[str, Any]] = []
+    for i, (b, f) in enumerate(zip(base_rows, finetuned_rows), start=1):
+        examples.append(
+            {
+                "id": i,
+                "query": b.input_text or f.input_text,
+                "expected_intent": b.gold_intent or f.gold_intent,
+                "expected_reason_code": b.gold_reason or f.gold_reason,
+                "base_answer": b.raw,
+                "finetuned_answer": f.raw,
+                "base_pred_intent": b.pred_intent,
+                "finetuned_pred_intent": f.pred_intent,
+                "base_pred_reason": b.pred_reason,
+                "finetuned_pred_reason": f.pred_reason,
+                "base_structured_ok": b.structured_ok,
+                "finetuned_structured_ok": f.structured_ok,
+                "consistency_group": b.consistency_group or f.consistency_group,
+            }
+        )
+    return examples

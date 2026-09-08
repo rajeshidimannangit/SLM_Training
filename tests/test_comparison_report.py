@@ -94,10 +94,61 @@ def test_markdown_report_columns() -> None:
         "latency_sec": 1.1,
     }
     rows = build_comparison_table(base, ft)
-    md = report_to_markdown(rows)
+    examples = [
+        {
+            "id": 1,
+            "query": "Please block my stolen card",
+            "expected_intent": "card_block",
+            "expected_reason_code": "CARD_STOLEN",
+            "base_answer": "Contact your bank to freeze it.",
+            "finetuned_answer": "intent: card_block\nreason_code: CARD_STOLEN",
+        }
+    ]
+    md = report_to_markdown(rows, examples=examples)
     assert "Classification accuracy" in md
     assert "78%" in md
     assert "94%" in md
     assert "2.8 sec" in md
     assert "1.1 sec" in md
+    assert "Query & answer comparison" in md
+    assert "Please block my stolen card" in md
+    assert "intent: card_block" in md
     assert format_metric_value("hallucination", 0.015, "pct") == "1.5%"
+
+
+def test_build_example_pairs() -> None:
+    from slm_finetune.evaluation.comparison import build_example_pairs
+
+    base_rows = [
+        PredictionRow(
+            "card_block",
+            None,
+            "CARD_STOLEN",
+            None,
+            False,
+            False,
+            1.0,
+            "g1",
+            "Please call the bank.",
+            "My card was stolen",
+        )
+    ]
+    ft_rows = [
+        PredictionRow(
+            "card_block",
+            "card_block",
+            "CARD_STOLEN",
+            "CARD_STOLEN",
+            True,
+            False,
+            0.8,
+            "g1",
+            "intent: card_block\nreason_code: CARD_STOLEN",
+            "My card was stolen",
+        )
+    ]
+    examples = build_example_pairs(base_rows, ft_rows)
+    assert len(examples) == 1
+    assert examples[0]["query"] == "My card was stolen"
+    assert examples[0]["base_answer"] == "Please call the bank."
+    assert "intent: card_block" in examples[0]["finetuned_answer"]

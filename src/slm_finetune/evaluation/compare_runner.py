@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable
 
-from slm_finetune.evaluation.comparison import ModelEvalResult, rows_from_eval_records
+from slm_finetune.evaluation.comparison import ModelEvalResult, rows_from_eval_records, build_example_pairs
 from slm_finetune.inference.engine import (
     DEFAULT_INSTRUCTION,
     load_unsloth_model,
@@ -159,6 +159,7 @@ def run_base_vs_finetuned_report(
 
     base_metrics = base_result.metrics()
     ft_metrics = ft_result.metrics()
+    examples = build_example_pairs(base_result.rows, ft_result.rows)
 
     store = MetricsStore(
         sqlite_path=metrics_cfg["store"]["sqlite_path"],
@@ -190,16 +191,22 @@ def run_base_vs_finetuned_report(
                 output_dir="artifacts/reports",
                 run_id=rid,
                 meta={"base_model": base_name, "finetuned_model": ft_path, "eval_file": str(eval_path)},
+                examples=examples,
             ).items()
         }
 
     if render:
-        render_comparison_report(base_metrics=base_metrics, finetuned_metrics=ft_metrics)
+        render_comparison_report(
+            base_metrics=base_metrics,
+            finetuned_metrics=ft_metrics,
+            examples=examples,
+        )
 
     return {
         "run_id": rid,
         "base_metrics": base_metrics,
         "finetuned_metrics": ft_metrics,
+        "examples": examples,
         "paths": paths,
     }
 
@@ -232,6 +239,23 @@ DEMO_FINETUNED_METRICS = {
 
 def run_demo_report(run_id: str | None = None, persist: bool = True) -> dict[str, Any]:
     rid = run_id or new_run_id("demo_cmp")
+    examples = [
+        {
+            "id": 1,
+            "query": "My credit card was stolen at the airport. Please block it now.",
+            "expected_intent": "card_block",
+            "expected_reason_code": "CARD_STOLEN",
+            "base_answer": "I'm sorry that happened. You should contact your bank to freeze the card.",
+            "finetuned_answer": "intent: card_block\nreason_code: CARD_STOLEN",
+            "base_pred_intent": None,
+            "finetuned_pred_intent": "card_block",
+            "base_pred_reason": None,
+            "finetuned_pred_reason": "CARD_STOLEN",
+            "base_structured_ok": False,
+            "finetuned_structured_ok": True,
+            "consistency_group": "block_stolen",
+        }
+    ]
     paths = {}
     if persist:
         paths = {
@@ -242,16 +266,19 @@ def run_demo_report(run_id: str | None = None, persist: bool = True) -> dict[str
                 output_dir="artifacts/reports",
                 run_id=rid,
                 meta={"mode": "demo"},
+                examples=examples,
             ).items()
         }
     render_comparison_report(
         base_metrics=DEMO_BASE_METRICS,
         finetuned_metrics=DEMO_FINETUNED_METRICS,
+        examples=examples,
     )
     return {
         "run_id": rid,
         "base_metrics": DEMO_BASE_METRICS,
         "finetuned_metrics": DEMO_FINETUNED_METRICS,
+        "examples": examples,
         "paths": paths,
         "mode": "demo",
     }
