@@ -159,7 +159,7 @@ def run_base_vs_finetuned_report(
 
     base_metrics = base_result.metrics()
     ft_metrics = ft_result.metrics()
-    examples = build_example_pairs(base_result.rows, ft_result.rows)
+    examples = build_example_pairs(base_result.rows, ft_result.rows, primary_only=True)
 
     store = MetricsStore(
         sqlite_path=metrics_cfg["store"]["sqlite_path"],
@@ -237,25 +237,43 @@ DEMO_FINETUNED_METRICS = {
 }
 
 
+DEMO_EXAMPLES = [
+    {
+        "id": 1,
+        "query": "Thieves took my Visa while boarding; freeze spend now.",
+        "expected_intent": "card_block",
+        "expected_reason_code": "CARD_STOLEN",
+        "base_answer": "I'm sorry that happened. You should contact your bank to freeze the card.",
+        "finetuned_answer": "intent: card_block\nreason_code: CARD_STOLEN",
+        "base_pred_intent": None,
+        "finetuned_pred_intent": "card_block",
+        "base_pred_reason": None,
+        "finetuned_pred_reason": "CARD_STOLEN",
+        "base_structured_ok": False,
+        "finetuned_structured_ok": True,
+        "consistency_group": "block_stolen",
+    },
+    {
+        "id": 2,
+        "query": "There is a ₹3,275 charge from NEON MART I never made.",
+        "expected_intent": "dispute_transaction",
+        "expected_reason_code": "UNRECOGNIZED_CHARGE",
+        "base_answer": "You may want to review your statement and call customer care.",
+        "finetuned_answer": "intent: dispute_transaction\nreason_code: UNRECOGNIZED_CHARGE",
+        "base_pred_intent": None,
+        "finetuned_pred_intent": "dispute_transaction",
+        "base_pred_reason": None,
+        "finetuned_pred_reason": "UNRECOGNIZED_CHARGE",
+        "base_structured_ok": False,
+        "finetuned_structured_ok": True,
+        "consistency_group": "dispute_unrec",
+    },
+]
+
+
 def run_demo_report(run_id: str | None = None, persist: bool = True) -> dict[str, Any]:
     rid = run_id or new_run_id("demo_cmp")
-    examples = [
-        {
-            "id": 1,
-            "query": "My credit card was stolen at the airport. Please block it now.",
-            "expected_intent": "card_block",
-            "expected_reason_code": "CARD_STOLEN",
-            "base_answer": "I'm sorry that happened. You should contact your bank to freeze the card.",
-            "finetuned_answer": "intent: card_block\nreason_code: CARD_STOLEN",
-            "base_pred_intent": None,
-            "finetuned_pred_intent": "card_block",
-            "base_pred_reason": None,
-            "finetuned_pred_reason": "CARD_STOLEN",
-            "base_structured_ok": False,
-            "finetuned_structured_ok": True,
-            "consistency_group": "block_stolen",
-        }
-    ]
+    examples = DEMO_EXAMPLES
     paths = {}
     if persist:
         paths = {

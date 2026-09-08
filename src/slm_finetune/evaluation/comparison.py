@@ -59,6 +59,7 @@ class PredictionRow:
     consistency_group: str | None = None
     raw: str = ""
     input_text: str = ""
+    is_paraphrase: bool = False
 
 
 @dataclass
@@ -188,6 +189,7 @@ def score_row(
     allowed_intents: set[str] | None,
     consistency_group: str | None,
     input_text: str = "",
+    is_paraphrase: bool = False,
 ) -> PredictionRow:
     pred_intent = parse_intent(response, allowed_intents)
     pred_reason = parse_reason_code(response)
@@ -223,6 +225,7 @@ def score_row(
         consistency_group=consistency_group,
         raw=response,
         input_text=input_text or "",
+        is_paraphrase=is_paraphrase,
     )
 
 
@@ -249,6 +252,7 @@ def rows_from_eval_records(
                 input_text=str(
                     rec.get("input") or rec.get("message") or rec.get("query") or ""
                 ),
+                is_paraphrase=bool(rec.get("_para_idx") is not None),
             )
         )
     return out
@@ -257,15 +261,21 @@ def rows_from_eval_records(
 def build_example_pairs(
     base_rows: list[PredictionRow],
     finetuned_rows: list[PredictionRow],
+    *,
+    primary_only: bool = True,
 ) -> list[dict[str, Any]]:
     """Align base/finetuned predictions into query + answer pairs for the report."""
     if len(base_rows) != len(finetuned_rows):
         raise ValueError("base and finetuned prediction rows must align")
     examples: list[dict[str, Any]] = []
-    for i, (b, f) in enumerate(zip(base_rows, finetuned_rows), start=1):
+    idx = 0
+    for b, f in zip(base_rows, finetuned_rows):
+        if primary_only and (b.is_paraphrase or f.is_paraphrase):
+            continue
+        idx += 1
         examples.append(
             {
-                "id": i,
+                "id": idx,
                 "query": b.input_text or f.input_text,
                 "expected_intent": b.gold_intent or f.gold_intent,
                 "expected_reason_code": b.gold_reason or f.gold_reason,
@@ -278,6 +288,7 @@ def build_example_pairs(
                 "base_structured_ok": b.structured_ok,
                 "finetuned_structured_ok": f.structured_ok,
                 "consistency_group": b.consistency_group or f.consistency_group,
+                "is_paraphrase": b.is_paraphrase or f.is_paraphrase,
             }
         )
     return examples

@@ -131,7 +131,21 @@ def test_build_example_pairs() -> None:
             "g1",
             "Please call the bank.",
             "My card was stolen",
-        )
+            False,
+        ),
+        PredictionRow(
+            "card_block",
+            None,
+            "CARD_STOLEN",
+            None,
+            False,
+            False,
+            1.1,
+            "g1",
+            "Call the bank asap.",
+            "Paraphrase stolen card",
+            True,
+        ),
     ]
     ft_rows = [
         PredictionRow(
@@ -145,10 +159,24 @@ def test_build_example_pairs() -> None:
             "g1",
             "intent: card_block\nreason_code: CARD_STOLEN",
             "My card was stolen",
-        )
+            False,
+        ),
+        PredictionRow(
+            "card_block",
+            "card_block",
+            "CARD_STOLEN",
+            "CARD_STOLEN",
+            True,
+            False,
+            0.9,
+            "g1",
+            "intent: card_block\nreason_code: CARD_STOLEN",
+            "Paraphrase stolen card",
+            True,
+        ),
     ]
-    examples = build_example_pairs(base_rows, ft_rows)
-    assert len(examples) == 1
-    assert examples[0]["query"] == "My card was stolen"
-    assert examples[0]["base_answer"] == "Please call the bank."
-    assert "intent: card_block" in examples[0]["finetuned_answer"]
+    primary = build_example_pairs(base_rows, ft_rows, primary_only=True)
+    assert len(primary) == 1
+    assert primary[0]["query"] == "My card was stolen"
+    all_ex = build_example_pairs(base_rows, ft_rows, primary_only=False)
+    assert len(all_ex) == 2

@@ -132,6 +132,8 @@ slm metrics export <run_id> -o artifacts/reports/<run_id>_metrics.json
 
 # Base SLM vs Fine-tuned SLM enterprise report
 slm metrics report --finetuned-model-dir models/finetuned/<run_id>
+# Uses held-out questions in data/evaluation/heldout_comparison_eval.jsonl
+# (not part of train.jsonl). Prints metrics + query/answer for base vs FT.
 slm metrics report --demo                          # sample table without GPU
 slm metrics report --from-json artifacts/reports/<id>/base_vs_finetuned_report.json
 ```

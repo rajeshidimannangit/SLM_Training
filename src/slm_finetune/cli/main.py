@@ -230,7 +230,7 @@ def metrics_report(
     eval_file: Optional[str] = typer.Option(
         None,
         "--eval-file",
-        help="Comparison eval JSONL (default: data/evaluation/comparison_eval.jsonl)",
+        help="Comparison eval JSONL (default: held-out set from configs/data/default.yaml)",
     ),
     model_config: str = typer.Option("configs/model/default.yaml", "--model-config"),
     data_config: str = typer.Option("configs/data/default.yaml", "--data-config"),

@@ -5,7 +5,8 @@ data:
   train_file: "data/processed/train.jsonl"
   eval_file: "data/processed/eval.jsonl"
   usecase_eval_file: "data/evaluation/usecase_eval.jsonl"
-  comparison_eval_file: "data/evaluation/comparison_eval.jsonl"
+  # Held-out Q&A set for base vs FT report (not used in fine-tuning)
+  comparison_eval_file: "data/evaluation/heldout_comparison_eval.jsonl"
   instruction_template: "alpaca"   # alpaca | chatml | sharegpt
   max_samples: null                # null = use all
   validation_split: 0.1
