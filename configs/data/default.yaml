@@ -1,0 +1,11 @@
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  evaluation_dir: "data/evaluation"
+  train_file: "data/processed/train.jsonl"
+  eval_file: "data/processed/eval.jsonl"
+  usecase_eval_file: "data/evaluation/usecase_eval.jsonl"
+  comparison_eval_file: "data/evaluation/comparison_eval.jsonl"
+  instruction_template: "alpaca"   # alpaca | chatml | sharegpt
+  max_samples: null                # null = use all
+  validation_split: 0.1
