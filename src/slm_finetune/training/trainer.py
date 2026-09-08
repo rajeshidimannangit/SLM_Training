@@ -168,6 +168,21 @@ def _build_trainer(model, tokenizer, train_ds, eval_ds, train_cfg, max_seq_lengt
     from trl import SFTConfig, SFTTrainer
 
     logger.info("Using TRL SFTTrainer (CUDA/GPU path)")
+    use_bf16 = bool(train_cfg.get("bf16", False))
+    use_fp16 = bool(train_cfg.get("fp16", False))
+    try:
+        import torch
+
+        if use_bf16 and torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+            logger.warning(
+                "bf16 requested but GPU lacks Ampere+ bf16 support; falling back to fp16"
+            )
+            use_bf16 = False
+            use_fp16 = True
+    except Exception:
+        pass
+    if use_bf16 and use_fp16:
+        use_fp16 = False  # mutually exclusive
     args_kwargs = {
         "per_device_train_batch_size": int(train_cfg.get("per_device_train_batch_size", 2)),
         "per_device_eval_batch_size": int(train_cfg.get("per_device_eval_batch_size", 2)),
@@ -175,8 +190,8 @@ def _build_trainer(model, tokenizer, train_ds, eval_ds, train_cfg, max_seq_lengt
         "warmup_ratio": float(train_cfg.get("warmup_ratio", 0.03)),
         "num_train_epochs": float(train_cfg.get("num_train_epochs", 3)),
         "learning_rate": float(train_cfg.get("learning_rate", 2e-4)),
-        "fp16": bool(train_cfg.get("fp16", False)),
-        "bf16": bool(train_cfg.get("bf16", True)),
+        "fp16": use_fp16,
+        "bf16": use_bf16,
         "logging_steps": int(train_cfg.get("logging_steps", 10)),
         "optim": train_cfg.get("optim", "adamw_8bit"),
         "weight_decay": float(train_cfg.get("weight_decay", 0.01)),

@@ -20,6 +20,6 @@ lora:
 quantization:
   load_in_4bit: true
   load_in_8bit: false
-  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_compute_dtype: "float16"  # T4-safe; use bfloat16 on Ampere+ if preferred
   bnb_4bit_quant_type: "nf4"
   bnb_4bit_use_double_quant: true

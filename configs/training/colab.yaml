@@ -27,8 +27,9 @@ training:
   load_best_model_at_end: true
   metric_for_best_model: "eval_loss"
   greater_is_better: false
-  fp16: false
-  bf16: true
+  # T4 (free Colab) has no bf16 — use fp16. A100/L4 can switch to bf16: true.
+  fp16: true
+  bf16: false
   report_to: ["none"]
   packing: false
   dataset_text_field: "text"
