@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate synthetic credit-card ops training/eval JSONL for SLM fine-tuning."""
+"""Generate synthetic credit-card ops training/eval JSONL for SLM fine-tuning.
+
+Each example teaches: helpful customer reply + structured classification footer
+for downstream routing (intent / reason_code).
+"""
 
 from __future__ import annotations
 
@@ -13,8 +17,11 @@ EVAL_OUT = ROOT / "data" / "processed" / "eval.jsonl"
 RAW_OUT = ROOT / "data" / "raw" / "credit_card_ops_synthetic.jsonl"
 
 INSTRUCTION = (
-    "Classify the credit-card customer message. "
-    "Respond in exactly this format:\n"
+    "You are a credit-card support assistant. "
+    "First reply helpfully to the customer using accurate banking terms. "
+    "Do not invent account balances, due dates, or transaction amounts. "
+    "Never ask the customer to share OTP, PIN, or CVV. "
+    "Then classify for downstream processing in exactly this format:\n"
     "intent: <label>\n"
     "reason_code: <CODE>"
 )
@@ -211,6 +218,86 @@ TEMPLATES: dict[str, list[tuple[str, list[str]]]] = {
     ],
 }
 
+# reason_code -> customer-facing reply templates (filled with same placeholders)
+REPLIES: dict[str, list[str]] = {
+    "CARD_STOLEN": [
+        "I'm sorry this happened. We'll place an emergency block on the card right away so no further spends go through. Keep the card unused, and we can help with a replacement after the block is confirmed. Never share OTP, PIN, or CVV with anyone.",
+        "Understood — treating this as a stolen-card case. We'll freeze the card immediately to stop misuse and guide you on reissue next. Do not share OTP, PIN, or CVV with any caller.",
+    ],
+    "CARD_LOST": [
+        "Sorry you've misplaced the card. We'll put a temporary block now to protect against unauthorized spends. If you find it later, you can request an unblock after verification. Please don't share OTP, PIN, or CVV with anyone.",
+        "Got it — we'll freeze the lost card so it can't be used. Once blocked, we can discuss replacement if it stays missing. Never share OTP, PIN, or CVV.",
+    ],
+    "SUSPICIOUS_ACTIVITY": [
+        "Thanks for flagging this. We'll place an emergency block for suspected misuse and review the recent activity. Avoid approving any unexpected OTP prompts, and never share OTP, PIN, or CVV.",
+        "Understood. We'll freeze the card due to suspicious activity and escalate for fraud review. Please ignore unknown OTP requests and do not share card secrets.",
+    ],
+    "CARD_FOUND": [
+        "Glad you found the card. We can start the unblock after a quick verification to confirm it's with you. Once restored, monitor recent transactions for anything unfamiliar.",
+        "Thanks for confirming the card is with you. We'll process the unblock request after identity checks so normal spends can resume safely.",
+    ],
+    "BLOCK_BY_MISTAKE": [
+        "No problem — accidental blocks happen. We'll reverse the temporary block after verifying your request so the card can be used again.",
+        "Understood. We'll restore access on the card that was blocked by mistake, subject to a short verification step.",
+    ],
+    "UNRECOGNIZED_CHARGE": [
+        "I understand this charge looks unfamiliar. We'll raise a dispute for the unrecognized transaction and guide you on temporary card protection if needed. Please keep any merchant SMS/emails for the investigation.",
+        "Thanks for reporting this. We'll lodge a dispute for the unrecognized charge and review it with the network. Avoid sharing OTP, PIN, or CVV with anyone claiming to 'reverse' it.",
+    ],
+    "DUPLICATE_CHARGE": [
+        "Sorry about the double charge. We'll file a duplicate-transaction dispute and track both postings for reversal of the extra debit where eligible.",
+        "Understood — we'll raise a dispute for the duplicate charge and follow up once the merchant/network review completes.",
+    ],
+    "SERVICE_NOT_RECEIVED": [
+        "Sorry the service wasn't delivered. We'll open a dispute for non-receipt of goods/services and ask you for order details to support the claim.",
+        "Got it. We'll raise a service-not-received dispute on that charge and guide you on the documents needed for the investigation.",
+    ],
+    "LIMIT_INCREASE": [
+        "We can take up your credit-limit increase request. Eligibility depends on income, repayment history, and internal policy — I'll route this for review without promising approval.",
+        "Thanks for the limit-enhancement request. We'll submit it for assessment based on your card usage and bank policy. You'll get an update after the review.",
+    ],
+    "LIMIT_INQUIRY": [
+        "I can help with a credit-limit and available-credit inquiry. For security I won't invent balances here — we'll fetch the live limit and available credit from your account systems next.",
+        "Understood. We'll look up your current sanctioned limit and available credit from the card account and share the accurate figures from the system.",
+    ],
+    "DUE_DATE_INQUIRY": [
+        "I can help with your payment due date. I'll pull the statement due date from your latest billing cycle so you can pay on time and avoid late fees.",
+        "Got it — we'll check this cycle's payment due date on your credit card statement and confirm the last date to pay without penalty.",
+    ],
+    "STATEMENT_REQUEST": [
+        "We can share your latest credit card statement. I'll request the statement PDF/details from the billing system and share how you can download it securely.",
+        "Understood. We'll arrange your card statement for the recent billing cycle through the secure channel linked to your account.",
+    ],
+    "MIN_DUE_INQUIRY": [
+        "I can help with minimum amount due (MAD). We'll fetch the current outstanding and minimum due from your latest statement — I won't guess amounts.",
+        "Got it. We'll look up this cycle's minimum due and total amount payable from your statement and share the system values.",
+    ],
+    "PAYMENT_CONFIRMATION": [
+        "Thanks for checking. We'll verify whether your recent payment has posted to the card account. Card payments can take a short time to reflect depending on the mode used.",
+        "Understood. We'll confirm the payment status against your card account and tell you once it has been credited or if it's still pending.",
+    ],
+    "OTP_PHISHING": [
+        "This is a common fraud pattern. A genuine bank never asks for OTP, PIN, or CVV over phone, SMS, or chat. Do not share anything, end the call, and we can help block the card if you already shared details.",
+        "Please treat this as phishing. Never share your OTP to unblock, reverse, or verify a card. Hang up, ignore further prompts, and report the incident so we can secure the card if needed.",
+    ],
+    "PHISHING_LINK": [
+        "Do not click that link. Banks do not ask you to verify a card or update KYC through unexpected SMS/email links that request CVV or PIN. Delete the message and open the official app/website yourself if you need to check anything.",
+        "This looks like a phishing link. Avoid opening it and never enter card number, CVV, PIN, or OTP on unknown pages. We can help secure the card if you already entered details.",
+    ],
+    "CARD_DETAILS_REQUEST": [
+        "That is not legitimate. Bank staff and genuine merchants should not ask you to share full card number with CVV or PIN on chat for refunds. Refuse, and report the request so we can protect the card.",
+        "Correct — we never ask for CVV, PIN, or OTP to process refunds or support. Do not share those details; we can help you secure the card and report the attempt.",
+    ],
+    "GENERAL_CARD_QUERY": [
+        "Happy to help with your card query. I'll route this to the right card-operations step and share the accurate process from bank policy without inventing account-specific numbers.",
+        "Thanks for the question. We can guide you on this credit-card feature and the next steps in the app or with support, using your product rules.",
+    ],
+    "CARD_REPLACEMENT": [
+        "We can help with a card replacement for damage or chip issues. After verification we'll arrange a reissued card to your registered address and guide you on activating it when it arrives.",
+        "Understood. We'll raise a replacement request for the damaged/non-working card and share tracking once the new plastic is dispatched.",
+    ],
+}
+
 PLACES = [
     "at the airport",
     "in a cab",
@@ -258,31 +345,41 @@ LIMITS = ["1 lakh", "2 lakh", "3 lakh", "5 lakh", "₹200,000", "₹500,000"]
 LAST4S = [f"{i:04d}" for i in range(1000, 9900, 37)]
 
 
-def fill(template: str, rng: random.Random) -> str:
-    return template.format(
-        place=rng.choice(PLACES),
-        event=rng.choice(EVENTS),
-        channel=rng.choice(CHANNELS),
-        merchant=rng.choice(MERCHANTS),
-        amount=rng.choice(AMOUNTS),
-        limit=rng.choice(LIMITS),
-        last4=rng.choice(LAST4S),
-    )
+def _vars(rng: random.Random) -> dict[str, str]:
+    return {
+        "place": rng.choice(PLACES),
+        "event": rng.choice(EVENTS),
+        "channel": rng.choice(CHANNELS),
+        "merchant": rng.choice(MERCHANTS),
+        "amount": rng.choice(AMOUNTS),
+        "limit": rng.choice(LIMITS),
+        "last4": rng.choice(LAST4S),
+    }
+
+
+def fill(template: str, values: dict[str, str]) -> str:
+    return template.format(**values)
+
+
+def format_output(reply: str, intent: str, reason: str) -> str:
+    return f"{reply.strip()}\n\nintent: {intent}\nreason_code: {reason}"
 
 
 def build_pool(rng: random.Random) -> list[dict]:
     pool: list[dict] = []
     for intent, groups in TEMPLATES.items():
         for reason, templates in groups:
+            reply_tmpls = REPLIES[reason]
             for tmpl in templates:
-                # Multiple filled variants per template
                 for _ in range(8):
-                    msg = fill(tmpl, rng)
+                    values = _vars(rng)
+                    msg = fill(tmpl, values)
+                    reply = fill(rng.choice(reply_tmpls), values)
                     pool.append(
                         {
                             "instruction": INSTRUCTION,
                             "input": msg,
-                            "output": f"intent: {intent}\nreason_code: {reason}",
+                            "output": format_output(reply, intent, reason),
                             "expected_intent": intent,
                             "expected_reason_code": reason,
                         }
@@ -295,7 +392,6 @@ def augment(row: dict, rng: random.Random) -> dict:
     text = row["input"]
     prefixes = ["", "Hi, ", "Hello, ", "Urgent: ", "Please help — ", "Agent assist: "]
     suffixes = ["", " Thanks.", " Please help ASAP.", " Regards.", ""]
-    # occasional casing / punctuation jitter
     if rng.random() < 0.15:
         text = text.lower()
     if rng.random() < 0.1:
@@ -311,7 +407,6 @@ def main(train_n: int = 8000, eval_n: int = 800, seed: int = 42) -> None:
     pool = build_pool(rng)
     rng.shuffle(pool)
 
-    # Expand with augmentation until we have enough unique-ish rows
     rows: list[dict] = []
     seen: set[str] = set()
     guard = 0
@@ -321,7 +416,6 @@ def main(train_n: int = 8000, eval_n: int = 800, seed: int = 42) -> None:
         item = augment(base, rng)
         key = item["input"].lower()
         if key in seen:
-            # force uniqueness with a token
             item = dict(item)
             item["input"] = f"{item['input']} (ref {rng.randint(10000, 99999)})"
             key = item["input"].lower()
@@ -336,7 +430,6 @@ def main(train_n: int = 8000, eval_n: int = 800, seed: int = 42) -> None:
     eval_rows = rows[:eval_n]
     train_rows = rows[eval_n : eval_n + train_n]
 
-    # Rebalance check
     from collections import Counter
 
     train_intents = Counter(r["expected_intent"] for r in train_rows)

@@ -14,8 +14,11 @@ from slm_finetune.utils.logging import setup_logging
 logger = setup_logging()
 
 DEFAULT_INSTRUCTION = (
-    "Classify the credit-card customer message. "
-    "Respond in exactly this format:\n"
+    "You are a credit-card support assistant. "
+    "First reply helpfully to the customer using accurate banking terms. "
+    "Do not invent account balances, due dates, or transaction amounts. "
+    "Never ask the customer to share OTP, PIN, or CVV. "
+    "Then classify for downstream processing in exactly this format:\n"
     "intent: <label>\n"
     "reason_code: <CODE>"
 )
@@ -195,13 +198,12 @@ def clean_completion(text: str) -> str:
     if text.startswith("⚠️") or text.startswith("❌"):
         return ""
 
-    # Card-ops format: keep only the first intent + reason_code pair.
+    # Card-ops format: keep customer reply + first intent/reason_code footer.
     intent_m = re.search(r"(?im)^intent:\s*\S+.*$", text)
     reason_m = re.search(r"(?im)^reason_code:\s*\S+.*$", text)
     if intent_m and reason_m:
-        start = min(intent_m.start(), reason_m.start())
         end = max(intent_m.end(), reason_m.end())
-        return text[start:end].strip()
+        return text[:end].strip()
 
     # Generic Alpaca / chat continuation cut.
     stop_markers = (

@@ -244,7 +244,11 @@ DEMO_EXAMPLES = [
         "expected_intent": "card_block",
         "expected_reason_code": "CARD_STOLEN",
         "base_answer": "I'm sorry that happened. You should contact your bank to freeze the card.",
-        "finetuned_answer": "intent: card_block\nreason_code: CARD_STOLEN",
+        "finetuned_answer": (
+            "I'm sorry this happened. We'll place an emergency block on the card "
+            "right away. Never share OTP, PIN, or CVV.\n\n"
+            "intent: card_block\nreason_code: CARD_STOLEN"
+        ),
         "base_pred_intent": None,
         "finetuned_pred_intent": "card_block",
         "base_pred_reason": None,
@@ -259,7 +263,11 @@ DEMO_EXAMPLES = [
         "expected_intent": "dispute_transaction",
         "expected_reason_code": "UNRECOGNIZED_CHARGE",
         "base_answer": "You may want to review your statement and call customer care.",
-        "finetuned_answer": "intent: dispute_transaction\nreason_code: UNRECOGNIZED_CHARGE",
+        "finetuned_answer": (
+            "I understand this charge looks unfamiliar. We'll raise a dispute "
+            "for the unrecognized transaction.\n\n"
+            "intent: dispute_transaction\nreason_code: UNRECOGNIZED_CHARGE"
+        ),
         "base_pred_intent": None,
         "finetuned_pred_intent": "dispute_transaction",
         "base_pred_reason": None,
