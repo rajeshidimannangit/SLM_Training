@@ -14,6 +14,37 @@ REASON_RE = re.compile(
     r"(?:reason[_ ]?code|reason)\s*[:=]\s*([a-zA-Z0-9_\-]+)",
     re.IGNORECASE,
 )
+FOOTER_START_RE = re.compile(
+    r"(?im)^(?:intent|label|classification|reason[_ ]?code)\s*[:=]",
+)
+
+# Default contract: helpful reply, then intent + reason_code footer.
+DEFAULT_REPLY_CLASSIFY_FORMAT = (
+    r"(?is)^(?!\s*intent\s*:).{40,}?\n\s*intent\s*:\s*[a-zA-Z0-9_\-]+\s*\n\s*"
+    r"reason[_ ]?code\s*:\s*[a-zA-Z0-9_\-]+\s*$"
+)
+
+
+def extract_customer_reply(text: str) -> str:
+    """Return the customer-facing reply before the classification footer."""
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ""
+    m = FOOTER_START_RE.search(text)
+    if not m:
+        return text
+    return text[: m.start()].strip()
+
+
+def has_customer_reply(text: str, *, min_chars: int = 40) -> bool:
+    """True when output has a non-trivial reply before intent/reason_code."""
+    reply = extract_customer_reply(text)
+    if len(reply) < min_chars:
+        return False
+    # Reject classify-only outputs that somehow precede the footer with noise.
+    if INTENT_RE.search(reply) or REASON_RE.search(reply):
+        return False
+    return True
 
 
 def parse_intent(text: str, allowed: set[str] | None = None) -> str | None:
@@ -26,13 +57,15 @@ def parse_intent(text: str, allowed: set[str] | None = None) -> str | None:
         label = m.group(1).lower().replace("-", "_")
         if allowed is None or label in allowed:
             return label
-    # Fallback: first token / first line if it looks like a label
-    first = re.split(r"[\s,;|/]+", text.lower().replace("-", "_"), maxsplit=1)[0]
-    first = first.strip(".:")
-    if allowed and first in allowed:
-        return first
-    if re.fullmatch(r"[a-z][a-z0-9_]*", first or ""):
-        return first
+        return None
+    # Legacy classify-only: whole response is a short label (no multi-line reply).
+    first_line = text.splitlines()[0].strip().lower().replace("-", "_").strip(".:")
+    if "\n" in text:
+        return None
+    if allowed and first_line in allowed:
+        return first_line
+    if re.fullmatch(r"[a-z][a-z0-9_]*", first_line or ""):
+        return first_line
     return None
 
 
@@ -41,6 +74,16 @@ def parse_reason_code(text: str) -> str | None:
     if m:
         return m.group(1).upper().replace("-", "_")
     return None
+
+
+def reply_classify_format_regex(intent: str, reason: str) -> str:
+    """Build format_regex requiring reply text before exact intent/reason footer."""
+    intent_esc = re.escape(intent)
+    reason_esc = re.escape(reason)
+    return (
+        rf"(?is)^(?!\s*intent\s*:).{{40,}}?\n\s*intent\s*:\s*{intent_esc}\s*\n\s*"
+        rf"reason[_ ]?code\s*:\s*{reason_esc}\s*$"
+    )
 
 
 def _safe_div(n: float, d: float) -> float:
@@ -60,6 +103,7 @@ class PredictionRow:
     raw: str = ""
     input_text: str = ""
     is_paraphrase: bool = False
+    reply_ok: bool = False
 
 
 @dataclass
@@ -99,6 +143,7 @@ class ModelEvalResult:
         )
 
         structured = _safe_div(sum(r.structured_ok for r in rows), len(rows))
+        reply_rate = _safe_div(sum(r.reply_ok for r in rows), len(rows))
         hallucination = _safe_div(sum(r.hallucinated for r in rows), len(rows))
         latency = float(sum(r.latency_sec for r in rows) / n)
 
@@ -124,6 +169,7 @@ class ModelEvalResult:
             "recall": float(sum(recalls) / len(recalls)) if recalls else 0.0,
             "f1": float(sum(f1s) / len(f1s)) if f1s else 0.0,
             "reason_code_accuracy": reason_acc,
+            "customer_reply": reply_rate,
             "structured_output": structured,
             "consistency": consistency,
             "hallucination": hallucination,
@@ -138,6 +184,7 @@ REPORT_METRIC_ORDER: list[tuple[str, str, str]] = [
     ("recall", "Recall", "pct"),
     ("f1", "F1", "pct"),
     ("reason_code_accuracy", "Reason-code accuracy", "pct"),
+    ("customer_reply", "Customer reply", "pct"),
     ("structured_output", "Structured output", "pct"),
     ("consistency", "Consistency", "pct"),
     ("hallucination", "Hallucination", "pct"),
@@ -193,16 +240,29 @@ def score_row(
 ) -> PredictionRow:
     pred_intent = parse_intent(response, allowed_intents)
     pred_reason = parse_reason_code(response)
-    structured_ok = True
+    reply_ok = has_customer_reply(response)
+
     if format_regex:
         structured_ok = bool(re.search(format_regex, response, flags=re.MULTILINE | re.DOTALL))
-    else:
-        # Default structured contract for card-ops router
-        structured_ok = pred_intent is not None and (
-            gold_reason is None or pred_reason is not None or "reason" not in response.lower()
+    elif gold_intent and gold_reason:
+        # Reply + exact intent/reason footer (training contract)
+        structured_ok = bool(
+            re.search(
+                reply_classify_format_regex(
+                    gold_intent.lower().replace("-", "_"),
+                    gold_reason.upper().replace("-", "_"),
+                ),
+                response,
+                flags=re.MULTILINE | re.DOTALL,
+            )
         )
-        if gold_reason is not None:
-            structured_ok = pred_intent is not None and pred_reason is not None
+    else:
+        # Default: helpful reply plus parseable intent/reason_code footer
+        structured_ok = (
+            reply_ok
+            and pred_intent is not None
+            and (gold_reason is None or pred_reason is not None)
+        )
 
     hallucinated = False
     for needle in must_not_contain or []:
@@ -226,6 +286,7 @@ def score_row(
         raw=response,
         input_text=input_text or "",
         is_paraphrase=is_paraphrase,
+        reply_ok=reply_ok,
     )
 
 
@@ -287,6 +348,8 @@ def build_example_pairs(
                 "finetuned_pred_reason": f.pred_reason,
                 "base_structured_ok": b.structured_ok,
                 "finetuned_structured_ok": f.structured_ok,
+                "base_reply_ok": b.reply_ok,
+                "finetuned_reply_ok": f.reply_ok,
                 "consistency_group": b.consistency_group or f.consistency_group,
                 "is_paraphrase": b.is_paraphrase or f.is_paraphrase,
             }

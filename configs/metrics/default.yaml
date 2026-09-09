@@ -57,6 +57,7 @@ metrics:
       - recall
       - f1
       - reason_code_accuracy
+      - customer_reply
       - structured_output
       - consistency
       - hallucination

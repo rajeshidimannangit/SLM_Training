@@ -145,6 +145,7 @@ Report shape:
 | Classification accuracy | … | … |
 | Precision / Recall / F1 | … | … |
 | Reason-code accuracy | … | … |
+| Customer reply | … | … |
 | Structured output | … | … |
 | Consistency | … | … |
 | Hallucination | … | … |

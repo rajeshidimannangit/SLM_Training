@@ -246,7 +246,7 @@ def metrics_report(
         "--from-json",
         help="Re-render a previously saved base_vs_finetuned_report.json",
     ),
-    max_new_tokens: int = typer.Option(64, "--max-new-tokens"),
+    max_new_tokens: int = typer.Option(256, "--max-new-tokens"),
 ) -> None:
     """
     Evaluate base SLM vs fine-tuned SLM and print the comparison report:
