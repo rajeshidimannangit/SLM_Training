@@ -1,0 +1,42 @@
+# Hyperparameter tuning — edit this file (or override via CLI) without touching code
+# Tuned for faster local MLX training on short credit-card intent examples
+experiment:
+  name: "slm-finetune-default"
+  run_name: null          # auto-generated if null
+  tags:
+    project: "slm-finetuning"
+    env: "local"
+
+training:
+  seed: 42
+  num_train_epochs: 1
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 1  # effective batch = 16
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  optim: "adamw_8bit"
+  max_grad_norm: 1.0
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 150
+  save_strategy: "steps"
+  save_steps: 100
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  fp16: false
+  bf16: true
+  report_to: ["mlflow"]
+  packing: false
+  dataset_text_field: "text"
+  max_steps: 400           # stop early after plateau; overrides full epoch if hit first
+
+paths:
+  train_file: "data/processed/train.jsonl"
+  eval_file: "data/processed/eval.jsonl"
+  output_dir: "experiments"
+  logging_dir: "artifacts/reports"

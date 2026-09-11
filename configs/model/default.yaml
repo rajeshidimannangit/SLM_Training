@@ -1,0 +1,14 @@
+# Base model configuration — download / cache under models/base
+model:
+  name_or_path: "unsloth/Llama-3.2-1B-Instruct"
+  local_base_dir: "models/base"
+  max_seq_length: 512      # short intent texts; 2048 was overkill and slow
+  dtype: null              # null = auto (float16/bfloat16)
+  load_in_4bit: true       # used for QLoRA; set false for LoRA/full-precision
+  trust_remote_code: false
+  use_cache: false
+
+finetuned:
+  output_dir: "models/finetuned"
+  adapter_name: "default_adapter"
+  merge_and_save: false    # if true, merge LoRA into base and save full model

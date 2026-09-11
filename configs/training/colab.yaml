@@ -1,0 +1,43 @@
+# Google Colab / cloud CUDA training profile — motor insurance verify-docs SFT
+experiment:
+  name: "motor-verify-docs-colab"
+  run_name: null
+  tags:
+    project: "slm-finetuning"
+    usecase: "motor-od-document-verification"
+    env: "colab"
+
+training:
+  seed: 42
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4   # effective batch = 16
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  optim: "adamw_8bit"
+  max_grad_norm: 1.0
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_strategy: "steps"
+  save_steps: 50
+  save_total_limit: 2
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  # T4 (free Colab) has no bf16 — use fp16. A100/L4 can switch to bf16: true.
+  fp16: true
+  bf16: false
+  report_to: ["none"]
+  packing: false
+  dataset_text_field: "text"
+  max_steps: -1   # train for full epochs (400 train rows)
+
+paths:
+  train_file: "data/processed/train.jsonl"
+  eval_file: "data/processed/eval.jsonl"
+  output_dir: "experiments"
+  logging_dir: "artifacts/reports"

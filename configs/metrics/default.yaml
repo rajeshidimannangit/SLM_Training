@@ -1,0 +1,64 @@
+# Enterprise metrics configuration
+metrics:
+  store:
+    backend: "sqlite"   # sqlite | mlflow | both
+    sqlite_path: "artifacts/metrics/metrics.db"
+    mlflow_tracking_uri: "artifacts/mlruns"
+    experiment_name: "slm-finetune"
+
+  training:
+    - loss
+    - learning_rate
+    - epoch
+    - grad_norm
+    - train_runtime
+    - train_samples_per_second
+    - train_steps_per_second
+
+  evaluation:
+    - eval_loss
+    - perplexity
+    - rouge1
+    - rouge2
+    - rougeL
+    - bleu
+
+  # Business / use-case KPIs (computed on data/evaluation/usecase_eval.jsonl)
+  usecase:
+    - task_success_rate      # fraction of responses meeting acceptance criteria
+    - latency_p50_ms
+    - latency_p95_ms
+    - token_efficiency       # output_tokens / input_tokens
+    - hallucination_flag_rate
+    - format_compliance_rate
+    - business_score         # weighted composite (see weights below)
+
+  business_score_weights:
+    task_success_rate: 0.40
+    format_compliance_rate: 0.20
+    hallucination_flag_rate: -0.25   # negative = penalty
+    token_efficiency: 0.15
+
+  # Base SLM vs Fine-tuned SLM comparison report
+  comparison:
+    title: "Performing the evaluation on base SLM and finetuned SLM"
+    report_dir: "artifacts/reports"
+    allowed_intents:
+      - card_block
+      - card_unblock
+      - dispute_transaction
+      - limit_request
+      - payment_statement
+      - fraud_safety
+      - other_card
+    metrics:
+      - classification_accuracy
+      - precision
+      - recall
+      - f1
+      - reason_code_accuracy
+      - customer_reply
+      - structured_output
+      - consistency
+      - hallucination
+      - latency_sec

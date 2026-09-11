@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Models & experiment artifacts (keep folder structure via README placeholders)
+models/base/**
+!models/base/README.md
+models/finetuned/**
+!models/finetuned/README.md
+experiments/**
+!experiments/.gitkeep
+artifacts/mlruns/**
+artifacts/metrics/**
+artifacts/reports/**
+!artifacts/**/.gitkeep
+
+# Secrets / local env
+.env
+.env.*
+*.pem
+wandb/

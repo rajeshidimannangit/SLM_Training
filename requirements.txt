@@ -1,0 +1,28 @@
+# Core training (Unsloth installs torch/transformers/trl/peft companions)
+unsloth
+torch
+transformers>=4.45.0
+datasets>=2.19.0
+accelerate>=0.33.0
+peft>=0.12.0
+trl>=0.9.0
+bitsandbytes>=0.43.0
+
+# Experiment tracking & metrics
+mlflow>=2.14.0
+evaluate>=0.4.2
+rouge-score>=0.1.2
+sacrebleu>=2.4.0
+sqlalchemy>=2.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Config & CLI
+pyyaml>=6.0
+typer>=0.12.0
+rich>=13.7.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# Compare chat UI (base vs fine-tuned side-by-side)
+gradio>=4.44.0
